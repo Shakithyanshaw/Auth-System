@@ -103,3 +103,73 @@ export const logout = (req, res) => {
     res.json({ success: false, message: error.message });
   }
 };
+
+//send verification OTP to the User's Email
+export const sendVerifyOtp = async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    const user = await userModel.findById(userId);
+
+    if (user.isAccountVerified) {
+      return res.json({
+        success: false,
+        message: 'Account is already verified',
+      });
+    }
+
+    // Generate a 6-digit OTP
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+
+    user.verifyOtp = otp;
+    user.verifyOtpExpireAt = Date.now() + 24 * 60 * 60 * 1000;
+
+    await user.save();
+
+    const mailOptions = {
+      from: process.env.SENDER_EMAIL,
+      to: user.email,
+      subject: 'Your Account Verification OTP',
+      text: `Hello ${user.name},\n\nYour OTP for account verification is: ${otp}. It will expire in 24 hours.\n\nBest regards,\nThe Team`,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    return res.json({ success: true, message: 'OTP sent to your email' });
+  } catch (error) {
+    res.json({ success: false, message: error.message });
+  }
+};
+
+export const verifyEmail = async (req, res) => {
+  const { userId, otp } = req.body;
+
+  if (!userId || !otp) {
+    return res.json({ success: false, message: 'Missing Details' });
+  }
+  try {
+    const user = await userModel.findById(userId);
+
+    if (!user) {
+      return res.json({ success: false, message: 'User not found' });
+    }
+
+    if (user.verifyOtp === '' || user.verifyOtp !== otp) {
+      return res.json({ success: false, message: 'Invalid OTP' });
+    }
+
+    if (user.verifyOtpExpireAt < Date.now()) {
+      return res.json({ success: false, message: 'OTP has expired' });
+    }
+
+    user.isAccountVerified = true;
+    user.verifyOtp = '';
+    user.verifyOtpExpireAt = 0;
+
+    await user.save();
+
+    return res.json({ success: true, message: 'Email verified successfully' });
+  } catch (error) {
+    return res.json({ success: false, message: error.message });
+  }
+};

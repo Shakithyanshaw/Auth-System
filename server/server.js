@@ -12,8 +12,8 @@ const port = process.env.PORT || 4000;
 connectDB();
 
 const allowedOrigins = [
-  'http://localhost:5173',
   'https://auth-system-lake.vercel.app',
+  'http://localhost:5173',
 ];
 
 app.use(express.json());
